@@ -71,7 +71,7 @@ jobs:
           heap-size: 512M
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             adb install -r "$APK"
             adb shell am force-stop io.netbird.client
             adb shell monkey -p io.netbird.client -c android.intent.category.LAUNCHER 1
