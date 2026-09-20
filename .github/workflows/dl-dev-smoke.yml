@@ -42,7 +42,11 @@ jobs:
           APK: ${{ steps.build.outputs.apk_path }}
         run: |
           set -euo pipefail
-          unzip -p "$APK" classes.dex | strings | grep -F 'netbird.zhangchengxiang.com:443'
+          DEX_DIR=$(mktemp -d)
+          trap 'rm -rf "$DEX_DIR"' EXIT
+          unzip -q "$APK" 'classes*.dex' -d "$DEX_DIR"
+          grep -R -a -l -F 'netbird.zhangchengxiang.com:443' "$DEX_DIR" | tee endpoint-dex.txt
+          test -s endpoint-dex.txt
           APKSIGNER=$(find "${ANDROID_HOME}/build-tools" -type f -name apksigner | sort -V | tail -1)
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose "$APK"
@@ -88,5 +92,6 @@ jobs:
             netbird-smoke.png
             activity.txt
             logcat.txt
+            endpoint-dex.txt
           retention-days: 7
           if-no-files-found: warn
