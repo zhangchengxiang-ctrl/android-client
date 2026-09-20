@@ -36,6 +36,7 @@ android {
 
     namespace = "io.netbird.client"
     compileSdk = rootProject.extra["compileSdkVersion"] as Int
+    buildToolsVersion = "36.0.0"
 
     defaultConfig {
         applicationId = "io.netbird.client"

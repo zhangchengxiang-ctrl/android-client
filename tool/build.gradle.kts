@@ -6,6 +6,7 @@ android {
 
     namespace = "io.netbird.client.tool"
     compileSdk = rootProject.extra["compileSdkVersion"] as Int
+    buildToolsVersion = "36.0.0"
 
     defaultConfig {
         minSdk = rootProject.extra["minSdkVersion"] as Int

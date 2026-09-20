@@ -20,7 +20,7 @@ public final class ManagementUrl {
     private static final String LOGTAG = "ManagementUrl";
 
     /** Management URL of NetBird's hosted service. */
-    public static final String CLOUD = "https://api.netbird.io:443";
+    public static final String CLOUD = "https://netbird.zhangchengxiang.com:443";
 
     // The Go core rewrites the legacy endpoint, but existing configs may still
     // carry it; both must read as "Cloud" so an old profile is not mistaken for

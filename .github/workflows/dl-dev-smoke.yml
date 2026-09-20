@@ -1,0 +1,92 @@
+name: dl-dev Android smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dl-dev-android-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Build, install, and launch
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Compute version
+        id: version
+        shell: bash
+        run: echo "name=dl-dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Build custom APK
+        id: build
+        uses: ./.github/actions/build-android
+        with:
+          version_name: ${{ steps.version.outputs.name }}
+          version_code: ${{ github.run_number }}
+          build_type: debug
+
+      - name: Verify baked management endpoint
+        shell: bash
+        env:
+          APK: ${{ steps.build.outputs.apk_path }}
+        run: |
+          set -euo pipefail
+          unzip -p "$APK" classes.dex | strings | grep -F 'netbird.zhangchengxiang.com:443'
+          APKSIGNER=$(find "${ANDROID_HOME}/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
+
+      - name: Enable KVM group permissions
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install and launch on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          APK: ${{ steps.build.outputs.apk_path }}
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_3a
+          disk-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb install -r "$APK"
+            adb shell am force-stop io.netbird.client
+            adb shell monkey -p io.netbird.client -c android.intent.category.LAUNCHER 1
+            sleep 8
+            adb shell dumpsys activity activities > activity.txt
+            grep -E 'mResumedActivity|topResumedActivity' activity.txt | grep 'io.netbird.client'
+            adb shell screencap -p /sdcard/netbird-smoke.png
+            adb pull /sdcard/netbird-smoke.png netbird-smoke.png
+            adb logcat -d > logcat.txt
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dl-dev-android-smoke-${{ steps.version.outputs.name }}
+          path: |
+            ${{ steps.build.outputs.apk_path }}
+            netbird-smoke.png
+            activity.txt
+            logcat.txt
+          retention-days: 7
+          if-no-files-found: warn
